@@ -43,7 +43,7 @@ export const getGraphQLBetHistories = (token: string) => {
                 "PS_3838",
                 "BET_ONLINE_AG"
             ],
-            gameId: "d583adcf-a301-4127-8e2d-fc7867d55f00",
+            gameId: "28164397-14fc-477c-b906-d5a17072bed6",
             league: "NBA"
         }
     }]

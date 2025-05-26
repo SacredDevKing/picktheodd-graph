@@ -10,7 +10,7 @@ type RawData = {
 
 type FormattedData = {
     time: number; // "yyyy-mm-dd hh:mm"
-    value: number;
+    value?: number | undefined;
 };
 
 const ChartPage = (props: any) => {
@@ -75,12 +75,13 @@ const ChartPage = (props: any) => {
     }
 
     const formatData = (data: RawData[]): FormattedData[] => {
+        // console.log("data1", data);
         const formatted = data
-            .filter(item => item.americanOdds !== null)
+            // .filter(item => item.americanOdds !== null)
             .map((item) => {
                 return {
                     time: parseInt(item.timeStamp + ""),
-                    value: item.americanOdds,
+                    value: item.americanOdds === null ? undefined : item.americanOdds,
                 };
             });
 
@@ -93,9 +94,10 @@ const ChartPage = (props: any) => {
 
         // Sort data by time (just in case it's not sorted)
         data.sort((a: any, b: any) => a.time - b.time);
+        // console.log("data", data)
 
         const normalized = [];
-        const FIVE_MIN = 5 * 60; // seconds
+        const FIVE_MIN = 60 * 1; // seconds
         let currentTime = Math.floor(data[0].time / FIVE_MIN) * FIVE_MIN;
         const endTime = data[data.length - 1].time;
 
@@ -111,7 +113,7 @@ const ChartPage = (props: any) => {
 
             normalized.push({
                 time: currentTime,
-                value: lastValue,
+                value: lastValue
             });
 
             currentTime += FIVE_MIN;
