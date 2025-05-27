@@ -91,8 +91,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
 
         const priceFormatter = (price: number) => {
             const formatted = price < 0 ? `${price}` : `+${price}`;
-            // console.log(`formatted: ${formatted}, lastPriceLabel: ${lastPriceLabel}`);
-            // if (formatted === lastPriceLabel) return '';
+            if (formatted === lastPriceLabel) return '';
             lastPriceLabel = formatted;
             return formatted;
         };

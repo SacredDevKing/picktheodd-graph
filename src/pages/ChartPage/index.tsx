@@ -70,17 +70,17 @@ const ChartPage = () => {
             time: item.timeStamp,
             value: item.americanOdds ?? undefined,
         }));
-        return normalizeToFiveMinuteSteps(formatted);
+        return normalizeToMinuteSteps(formatted);
     };
 
-    const normalizeToFiveMinuteSteps = (data: FormattedData[]) => {
+    const normalizeToMinuteSteps = (data: FormattedData[]) => {
         if (!data.length) return [];
 
         data.sort((a, b) => a.time - b.time);
 
-        const FIVE_MIN = 60 * 1;
+        const MIN_STEP = 60 * 1;
         const normalized: FormattedData[] = [];
-        let currentTime = Math.floor(data[0].time / FIVE_MIN) * FIVE_MIN;
+        let currentTime = Math.floor(data[0].time / MIN_STEP) * MIN_STEP;
         const endTime = data[data.length - 1].time;
 
         let dataIndex = 0;
@@ -92,7 +92,7 @@ const ChartPage = () => {
                 dataIndex++;
             }
             normalized.push({ time: currentTime, value: lastValue });
-            currentTime += FIVE_MIN;
+            currentTime += MIN_STEP;
         }
 
         return normalized;
