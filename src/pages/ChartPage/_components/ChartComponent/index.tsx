@@ -1,7 +1,6 @@
-
-import { ServerResponse } from 'http';
-import { AreaSeries, createChart, ColorType, ISeriesApi, UTCTimestamp, LineType } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
+import { AreaSeries, createChart, ColorType, ISeriesApi, UTCTimestamp, LineType } from 'lightweight-charts';
+import ZoomButton from '../../../../components/ZoomButton';
 
 export const ChartComponent = (props: any) => {
     const {
@@ -43,7 +42,7 @@ export const ChartComponent = (props: any) => {
         ps3838Duel: true,
         pointsBetDuel: true
     });
-    const [seriesSplitCnt, setSeriesSplitCnt] = useState<Record<string, any>>({
+    const [seriesSplitCnt, setSeriesSplitCnt] = useState<Record<string, number>>({
         fanDuel: 0,
         draftKingsDuel: 0,
         espnBetDuel: 0,
@@ -163,7 +162,7 @@ export const ChartComponent = (props: any) => {
                     }
 
                     lines.push(
-                        `<div style="color: ${series.options().color}; font-weight: 600;">+${value} <span style="opacity: 0.7;">(${key.split("___")[0]})</span></div>`
+                        `<div style="color: ${series.options().color}; font-weight: 600;">${value < 0 ? value : `+${value}`} <span style="opacity: 0.7;">(${key.split("___")[0]})</span></div>`
                     );
 
                     visible = true;
@@ -220,6 +219,66 @@ export const ChartComponent = (props: any) => {
                 }
             }
         }
+    }, [visibleSeries, seriesSplitCnt]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const now = Math.floor(Date.now() / 1000); // current time in seconds
+
+            Object.entries(visibleSeries).forEach(([key, isVisible]) => {
+                if (!isVisible) return;
+
+                if (getRandomInt(7) === 6) return;
+
+                const seriesKey = key + "___" + (seriesSplitCnt[key] - 1);
+                const series = seriesMapRef.current[seriesKey];
+                if (series) {
+                    const currentData = seriesDataRef.current[seriesKey] || [];
+                    const currentDataCnt = currentData.length;
+
+                    if (currentDataCnt <= 0)
+                        return;
+
+                    if ((now - currentData[currentDataCnt - 1].time) <= 60) {
+                        const newValue = currentData[currentDataCnt - 1].value;
+                        const newPoint = { time: now, value: newValue };
+
+                        const updated = [...currentData, newPoint];
+
+                        dataSeries[key].push(newPoint);
+                        series.setData(updated);
+                        seriesDataRef.current[seriesKey] = updated;
+                    } else {
+                        const chart = chartRef.current;
+                        if (!chart) return;
+
+                        const newSeriesKey = key + "___" + (seriesSplitCnt[key]);
+                        const newValue = currentData[currentDataCnt - 1].value;
+                        const newPoint = { time: now, value: newValue };
+
+                        const updated: any = [newPoint];
+
+                        const newSeries = chart.addSeries(AreaSeries, {
+                            lineColor: seriesColors[key],
+                            lineType: LineType.Simple,
+                            topColor: 'rgba(0, 0, 0, 0)',
+                            bottomColor: 'rgba(0, 0, 0, 0)'
+                        });
+                        newSeries.setData(updated);
+                        newSeries.applyOptions({ visible: true })
+
+                        seriesMapRef.current[newSeriesKey] = newSeries;
+                        seriesDataRef.current[newSeriesKey] = updated;
+
+                        dataSeries[key].push(newPoint);
+
+                        setSeriesSplitCnt((prev) => ({ ...prev, [key]: (seriesSplitCnt[key] + 1) }));
+                    }
+                }
+            });
+        }, 1000 * 60);
+
+        return () => clearInterval(interval);
     }, [visibleSeries, seriesSplitCnt]);
 
     const splitByUndefined = (data: any) => {
@@ -296,32 +355,9 @@ export const ChartComponent = (props: any) => {
         timeScale.setVisibleRange({ from, to });
     };
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const now = Math.floor(Date.now() / 1000); // current time in seconds
-
-            Object.entries(visibleSeries).forEach(([key, isVisible]) => {
-                if (!isVisible) return;
-
-                // for (let i = 0; i < seriesSplitCnt[key]; i++) {
-                const seriesKey = key + "___" + (seriesSplitCnt[key] - 1);
-                const series = seriesMapRef.current[seriesKey];
-                if (series) {
-                    const randomValue = Math.floor(Math.random() * (220 - 100 + 1)) + 100; // between 80–120
-                    const newPoint = { time: now, value: randomValue };
-
-                    const currentData = seriesDataRef.current[seriesKey] || [];
-                    const updated = [...currentData, newPoint];
-
-                    series.setData(updated);
-                    seriesDataRef.current[seriesKey] = updated;
-                }
-                // }
-            });
-        }, 1000 * 10);
-
-        return () => clearInterval(interval);
-    }, [visibleSeries, seriesSplitCnt]);
+    const getRandomInt = (max: number) => {
+        return Math.floor(Math.random() * max);
+    }
 
     return <>
 
@@ -346,46 +382,22 @@ export const ChartComponent = (props: any) => {
             </div>
 
             <div className="flex justify-center items-center gap-2">
-                <button
-                    onClick={() => zoomTo(15)}
-                    className={
-                        visibleType === "15min"
-                            ? "bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 border border-blue-700 rounded"
-                            : "bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-1 px-2 border border-blue-500 hover:border-transparent rounded"
-                    }
-                >
-                    Last 15m
-                </button>
-                <button
-                    onClick={() => zoomTo(60)}
-                    className={
-                        visibleType === "60min"
-                            ? "bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 border border-blue-700 rounded"
-                            : "bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-1 px-2 border border-blue-500 hover:border-transparent rounded"
-                    }
-                >
-                    Last 1h
-                </button>
-                <button
-                    onClick={() => zoomTo(60 * 24)}
-                    className={
-                        visibleType === "1440min"
-                            ? "bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 border border-blue-700 rounded"
-                            : "bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-1 px-2 border border-blue-500 hover:border-transparent rounded"
-                    }
-                >
-                    Last 24h
-                </button>
-                <button
-                    onClick={() => zoomTo('all')}
-                    className={
-                        visibleType === "all"
-                            ? "bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 border border-blue-700 rounded"
-                            : "bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-1 px-2 border border-blue-500 hover:border-transparent rounded"
-                    }
-                >
-                    All Time
-                </button>
+                <ZoomButton onHandleClick={() => zoomTo(15)}
+                    label='Last 15m'
+                    visibleType={visibleType}
+                    zoomValue='15min' />
+                <ZoomButton onHandleClick={() => zoomTo(60)}
+                    label='Last 1h'
+                    visibleType={visibleType}
+                    zoomValue='60min' />
+                <ZoomButton onHandleClick={() => zoomTo(60 * 24)}
+                    label='All Time'
+                    visibleType={visibleType}
+                    zoomValue='1440min' />
+                <ZoomButton onHandleClick={() => zoomTo('all')}
+                    label='Last 24h'
+                    visibleType={visibleType}
+                    zoomValue='all' />
             </div>
 
             <div style={{ position: 'relative' }}>

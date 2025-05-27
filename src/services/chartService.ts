@@ -5,7 +5,6 @@ export const getGraphQLToken = () => {
         axios.post(
             process.env.REACT_APP_CORS_HEADER + "https://api.picktheodds.app/graphql",
             {
-                // Replace this with your actual GraphQL query payload
                 query:
                     "\n  mutation GetToken($userId: Guid, $refreshToken: String) {\n    user {\n      token(userId: $userId, refreshToken: $refreshToken) {\n        accessToken\n      }\n    }\n  }\n"
             },
@@ -30,7 +29,7 @@ export const getGraphQLBetHistories = (token: string) => {
         operationName: "GetBetMarketListingHistory",
         query: "query GetBetMarketListingHistory($betMarketHashCode: Int!, $gameId: Guid!, $league: LeagueEnum!, $betSites: [BetMarketSiteEnumTypeTwo]) {\n  betMarketListingHistory(\n    betMarketHashCode: $betMarketHashCode\n    gameId: $gameId\n    league: $league\n    betSites: $betSites\n  ) {\n    siteId\n    odds {\n      timeStamp\n      americanOdds\n      __typename\n    }\n    __typename\n  }\n}",
         variables: {
-            betMarketHashCode: 580725173,
+            betMarketHashCode: 1556590557,
             betSites: [
                 "FAN_DUEL",
                 "MGM",
@@ -43,7 +42,7 @@ export const getGraphQLBetHistories = (token: string) => {
                 "PS_3838",
                 "BET_ONLINE_AG"
             ],
-            gameId: "28164397-14fc-477c-b906-d5a17072bed6",
+            gameId: "753565cc-cbfa-45af-8349-1280b704ad51",
             league: "NBA"
         }
     }]
