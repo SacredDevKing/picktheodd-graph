@@ -1,13 +1,13 @@
 import React from "react";
 
-interface ZoomButtonProps {
+interface BtnZoomProps {
     onHandleClick: () => void;
     label: string;
     visibleType: string;
     zoomValue: string;
 }
 
-const ZoomButton: React.FC<ZoomButtonProps> = ({ onHandleClick, visibleType, label, zoomValue }) => {
+const BtnZoom: React.FC<BtnZoomProps> = ({ onHandleClick, visibleType, label, zoomValue }) => {
     return <>
         <button
             onClick={onHandleClick}
@@ -22,4 +22,4 @@ const ZoomButton: React.FC<ZoomButtonProps> = ({ onHandleClick, visibleType, lab
     </>
 }
 
-export default ZoomButton;
+export default BtnZoom;

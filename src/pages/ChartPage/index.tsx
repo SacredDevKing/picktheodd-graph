@@ -8,24 +8,25 @@ type RawData = {
     timeStamp: number; // Unix timestamp in seconds
 };
 
-type FormattedData = {
+export type FormattedData = {
     time: number; // "yyyy-mm-dd hh:mm"
     value?: number | undefined;
 };
 
-const ChartPage = (props: any) => {
+const ChartPage = () => {
     const [token, setToken] = useState("");
     const [betMarHs, setBetMarHs] = useState<any[]>([]);
-    const [fanDuelValues, setFanDuelValues] = useState<any[]>([]);
-    const [draftKingsValues, setDraftKingsValues] = useState<any[]>([]);
-    const [espnBetValues, setEspnBetValues] = useState<any[]>([]);
-    const [betOnlineAgValues, setBetOnlineAgValues] = useState<any[]>([]);
-    const [mgmValues, setMgmValues] = useState<any[]>([]);
-    const [bovadaValues, setBovadaValues] = useState<any[]>([]);
-    const [uniBetValues, setUniBetValues] = useState<any[]>([]);
-    const [caesarsValues, setCaesarsValues] = useState<any[]>([]);
-    const [ps3838Values, setPs3838Values] = useState<any[]>([]);
-    const [pointsBetValues, setPointsBetValues] = useState<any[]>([]);
+
+    const [fanDuelValues, setFanDuelValues] = useState<FormattedData[]>([]);
+    const [draftKingsValues, setDraftKingsValues] = useState<FormattedData[]>([]);
+    const [espnBetValues, setEspnBetValues] = useState<FormattedData[]>([]);
+    const [betOnlineAgValues, setBetOnlineAgValues] = useState<FormattedData[]>([]);
+    const [mgmValues, setMgmValues] = useState<FormattedData[]>([]);
+    const [bovadaValues, setBovadaValues] = useState<FormattedData[]>([]);
+    const [uniBetValues, setUniBetValues] = useState<FormattedData[]>([]);
+    const [caesarsValues, setCaesarsValues] = useState<FormattedData[]>([]);
+    const [ps3838Values, setPs3838Values] = useState<FormattedData[]>([]);
+    const [pointsBetValues, setPointsBetValues] = useState<FormattedData[]>([]);
 
     useEffect(() => {
         getGraphQLToken()
@@ -75,9 +76,7 @@ const ChartPage = (props: any) => {
     }
 
     const formatData = (data: RawData[]): FormattedData[] => {
-        // console.log("data1", data);
         const formatted = data
-            // .filter(item => item.americanOdds !== null)
             .map((item) => {
                 return {
                     time: parseInt(item.timeStamp + ""),
@@ -92,9 +91,7 @@ const ChartPage = (props: any) => {
     const normalizeToFiveMinuteSteps = (data: FormattedData[]) => {
         if (data.length === 0) return [];
 
-        // Sort data by time (just in case it's not sorted)
         data.sort((a: any, b: any) => a.time - b.time);
-        // console.log("data", data)
 
         const normalized = [];
         const FIVE_MIN = 60 * 1; // seconds
@@ -105,7 +102,6 @@ const ChartPage = (props: any) => {
         let lastValue = data[0].value;
 
         while (currentTime <= endTime) {
-            // Move to the most recent data point before or at currentTime
             while (dataIndex < data.length && data[dataIndex].time <= currentTime) {
                 lastValue = data[dataIndex].value;
                 dataIndex++;
@@ -124,7 +120,6 @@ const ChartPage = (props: any) => {
 
     return <>
         {
-            fanDuelValues.length > 0 &&
             <ChartComponent
                 fanDuelValues={fanDuelValues}
                 draftKingsValues={draftKingsValues}

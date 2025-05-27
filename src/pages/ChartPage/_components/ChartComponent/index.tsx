@@ -1,28 +1,44 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AreaSeries, createChart, ColorType, ISeriesApi, UTCTimestamp, LineType } from 'lightweight-charts';
-import ZoomButton from '../../../../components/ZoomButton';
 
-export const ChartComponent = (props: any) => {
-    const {
-        fanDuelValues,
-        draftKingsValues,
-        espnBetValues,
-        betOnlineAgValues,
-        mgmValues,
-        bovadaValues,
-        uniBetValues,
-        caesarsValues,
-        ps3838Values,
-        pointsBetValues,
-        colors: {
-            backgroundColor = 'black',
-            lineColor = '#2962FF',
-            textColor = 'white',
-            areaTopColor = '#2962FF',
-            areaBottomColor = 'rgba(41, 98, 255, 0.28)',
-        } = {},
-    } = props;
+import ButBetSite from '../../../../components/ButBetSite';
+import BtnZoom from '../../../../components/ButZoom';
+import { formatTime, timeAgo } from '../../../../utils/times';
+import { FormattedData } from '../..';
 
+interface ChartComponentProps {
+    fanDuelValues: FormattedData[];
+    draftKingsValues: FormattedData[];
+    espnBetValues: FormattedData[];
+    betOnlineAgValues: FormattedData[];
+    mgmValues: FormattedData[];
+    bovadaValues: FormattedData[];
+    uniBetValues: FormattedData[];
+    caesarsValues: FormattedData[];
+    ps3838Values: FormattedData[];
+    pointsBetValues: FormattedData[];
+}
+
+type LineAttribute = {
+    imageSrc: string;
+    color: string;
+    name: string;
+    visible: boolean;
+    splitCnt: number;
+}
+
+export const ChartComponent: React.FC<ChartComponentProps> = ({
+    fanDuelValues,
+    draftKingsValues,
+    espnBetValues,
+    betOnlineAgValues,
+    mgmValues,
+    bovadaValues,
+    uniBetValues,
+    caesarsValues,
+    ps3838Values,
+    pointsBetValues
+}) => {
     const chartContainerRef = useRef<any>(null);
     const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
     const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -30,31 +46,7 @@ export const ChartComponent = (props: any) => {
     const seriesDataRef = useRef<Record<string, { time: number; value: number }[]>>({});
 
     const [visibleType, setVisibleType] = useState("all");
-    const [visibleSeries, setVisibleSeries] = useState<Record<string, boolean>>({
-        fanDuel: true,
-        draftKingsDuel: true,
-        espnBetDuel: true,
-        betOnlineAgDuel: true,
-        mgmDuel: true,
-        bovadaDuel: true,
-        uniBetDuel: true,
-        caesarsDuel: true,
-        ps3838Duel: true,
-        pointsBetDuel: true
-    });
-    const [seriesSplitCnt, setSeriesSplitCnt] = useState<Record<string, number>>({
-        fanDuel: 0,
-        draftKingsDuel: 0,
-        espnBetDuel: 0,
-        betOnlineAgDuel: 0,
-        mgmDuel: 0,
-        bovadaDuel: 0,
-        uniBetDuel: 0,
-        caesarsDuel: 0,
-        ps3838Duel: 0,
-        pointsBetDuel: 0
-    });
-    const dataSeries: Record<string, any[]> = {
+    const dataSeries: Record<string, FormattedData[]> = {
         fanDuel: fanDuelValues,
         draftKingsDuel: draftKingsValues,
         espnBetDuel: espnBetValues,
@@ -66,18 +58,78 @@ export const ChartComponent = (props: any) => {
         ps3838Duel: ps3838Values,
         pointsBetDuel: pointsBetValues,
     };
-    const seriesColors: Record<string, string> = {
-        fanDuel: '#1E90FF',
-        draftKingsDuel: '#32CD32',
-        espnBetDuel: '#40E0D0',
-        betOnlineAgDuel: '#2962FF',
-        mgmDuel: '#D2B48C',
-        bovadaDuel: '#DC143C',
-        uniBetDuel: '#2E8B57',
-        caesarsDuel: '#20B2AA',
-        ps3838Duel: '#8A2BE2',
-        pointsBetDuel: '#FF4500',
-    };
+    const [seriesAttr, setSeriesAttr] = useState<Record<string, LineAttribute>>({
+        fanDuel: {
+            imageSrc: 'https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2Ffanduel.webp&w=640&q=75',
+            color: '#1E90FF',
+            name: 'FanDuel',
+            visible: true,
+            splitCnt: 0,
+        },
+        draftKingsDuel: {
+            imageSrc: '	https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2Fdraftkings.webp&w=640&q=75',
+            color: '#32CD32',
+            name: 'DraftKings',
+            visible: true,
+            splitCnt: 0,
+        },
+        espnBetDuel: {
+            imageSrc: 'https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2Fespnbet.webp&w=640&q=75',
+            color: '#40E0D0',
+            name: 'ESPNBet',
+            visible: true,
+            splitCnt: 0,
+        },
+        betOnlineAgDuel: {
+            imageSrc: 'https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2Fbetonline.webp&w=640&q=75',
+            color: '#FF6347',
+            name: 'BetOnline',
+            visible: true,
+            splitCnt: 0,
+        },
+        mgmDuel: {
+            imageSrc: 'https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2Fmgm.webp&w=640&q=75',
+            color: '#D2B48C',
+            name: 'MGM',
+            visible: true,
+            splitCnt: 0,
+        },
+        bovadaDuel: {
+            imageSrc: 'https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2Fbovada.webp&w=640&q=75',
+            color: '#DC143C',
+            name: 'Bovada',
+            visible: true,
+            splitCnt: 0,
+        },
+        uniBetDuel: {
+            imageSrc: 'https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2Funibet.webp&w=640&q=75',
+            color: '#2E8B57',
+            name: 'UniBet',
+            visible: true,
+            splitCnt: 0,
+        },
+        caesarsDuel: {
+            imageSrc: 'https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2Fcaesars.webp&w=640&q=75',
+            color: '#20B2AA',
+            name: 'Caesars',
+            visible: true,
+            splitCnt: 0,
+        },
+        ps3838Duel: {
+            imageSrc: 'https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2Fpinnacle.webp&w=640&q=75',
+            color: '#8A2BE2',
+            name: 'Pinnacle',
+            visible: true,
+            splitCnt: 0,
+        },
+        pointsBetDuel: {
+            imageSrc: 'https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2Fpointsbet.webp&w=640&q=75',
+            color: '#FF4500',
+            name: 'PointsBet (CA)',
+            visible: true,
+            splitCnt: 0,
+        },
+    });
 
     useEffect(
         () => {
@@ -91,7 +143,7 @@ export const ChartComponent = (props: any) => {
                         type: ColorType.Solid,
                         color: "#000000"
                     },
-                    textColor,
+                    textColor: 'white',
                     attributionLogo: false,
                 },
                 grid: {
@@ -123,10 +175,17 @@ export const ChartComponent = (props: any) => {
                 const subArrays = splitByUndefined(data);
                 const cnt = subArrays.length;
 
-                setSeriesSplitCnt((prev) => ({ ...prev, [key]: cnt }));
+                setSeriesAttr(prev => ({
+                    ...prev,
+                    [key]: {
+                        ...prev[key],
+                        splitCnt: cnt,
+                    },
+                }));
+
                 for (let i = 0; i < cnt; i++) {
                     const series = chart.addSeries(AreaSeries, {
-                        lineColor: seriesColors[key],
+                        lineColor: seriesAttr[key].color,
                         lineType: LineType.Simple,
                         topColor: 'rgba(0, 0, 0, 0)',
                         bottomColor: 'rgba(0, 0, 0, 0)'
@@ -153,7 +212,7 @@ export const ChartComponent = (props: any) => {
                 const lines: string[] = [];
                 let visible = false;
                 for (const [key, series] of Object.entries(seriesMapRef.current)) {
-                    if (!visibleSeries[key.split("___")[0]]) continue;
+                    if (!seriesAttr[key.split("___")[0]].visible) continue;
                     const value = param.seriesData.get(series)?.value;
                     if (value === undefined) continue;
 
@@ -200,37 +259,32 @@ export const ChartComponent = (props: any) => {
             uniBetValues,
             caesarsValues,
             ps3838Values,
-            pointsBetValues,
-            backgroundColor,
-            lineColor,
-            textColor,
-            areaTopColor,
-            areaBottomColor,
-            visibleSeries
+            pointsBetValues
         ]
     );
 
     useEffect(() => {
-        for (const [key, visible] of Object.entries(visibleSeries)) {
-            for (let i = 0; i < seriesSplitCnt[key]; i++) {
+        for (const [key, attr] of Object.entries(seriesAttr)) {
+            for (let i = 0; i < seriesAttr[key].splitCnt; i++) {
                 const series = seriesMapRef.current[key + "___" + i];
                 if (series) {
-                    series.applyOptions({ visible });
+                    series.applyOptions({ visible: attr.visible });
                 }
             }
         }
-    }, [visibleSeries, seriesSplitCnt]);
+    }, [seriesAttr]);
 
     useEffect(() => {
         const interval = setInterval(() => {
             const now = Math.floor(Date.now() / 1000); // current time in seconds
 
-            Object.entries(visibleSeries).forEach(([key, isVisible]) => {
+            Object.entries(seriesAttr).forEach(([key, attr]) => {
+                const isVisible = attr.visible;
                 if (!isVisible) return;
 
                 if (getRandomInt(7) === 6) return;
 
-                const seriesKey = key + "___" + (seriesSplitCnt[key] - 1);
+                const seriesKey = key + "___" + (seriesAttr[key].splitCnt - 1);
                 const series = seriesMapRef.current[seriesKey];
                 if (series) {
                     const currentData = seriesDataRef.current[seriesKey] || [];
@@ -252,14 +306,14 @@ export const ChartComponent = (props: any) => {
                         const chart = chartRef.current;
                         if (!chart) return;
 
-                        const newSeriesKey = key + "___" + (seriesSplitCnt[key]);
+                        const newSeriesKey = key + "___" + (seriesAttr[key].splitCnt);
                         const newValue = currentData[currentDataCnt - 1].value;
                         const newPoint = { time: now, value: newValue };
 
                         const updated: any = [newPoint];
 
                         const newSeries = chart.addSeries(AreaSeries, {
-                            lineColor: seriesColors[key],
+                            lineColor: seriesAttr[key].color,
                             lineType: LineType.Simple,
                             topColor: 'rgba(0, 0, 0, 0)',
                             bottomColor: 'rgba(0, 0, 0, 0)'
@@ -272,14 +326,20 @@ export const ChartComponent = (props: any) => {
 
                         dataSeries[key].push(newPoint);
 
-                        setSeriesSplitCnt((prev) => ({ ...prev, [key]: (seriesSplitCnt[key] + 1) }));
+                        setSeriesAttr(prev => ({
+                            ...prev,
+                            [key]: {
+                                ...prev[key],
+                                splitCnt: (seriesAttr[key].splitCnt + 1),
+                            },
+                        }));
                     }
                 }
             });
         }, 1000 * 60);
 
         return () => clearInterval(interval);
-    }, [visibleSeries, seriesSplitCnt]);
+    }, [seriesAttr]);
 
     const splitByUndefined = (data: any) => {
         const result = [];
@@ -291,38 +351,24 @@ export const ChartComponent = (props: any) => {
                     result.push(currentSegment);
                     currentSegment = [];
                 }
-            } else {
+            } else
                 currentSegment.push(item);
-            }
         }
 
-        // Push the last segment if it exists
-        if (currentSegment.length > 0) {
+        if (currentSegment.length > 0)
             result.push(currentSegment);
-        }
 
         return result;
     }
 
-    const formatTime = (timestamp: number): string => {
-        const date = new Date(timestamp * 1000);
-        return date.toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true,
-        });
-    };
-
-    const timeAgo = (timestamp: number): string => {
-        const diff = Date.now() - timestamp * 1000;
-        const minutes = Math.floor(diff / 60000);
-        if (minutes < 60) return `${minutes}min ago`;
-        const hours = Math.floor(minutes / 60);
-        return `${hours}hr${hours > 1 ? 's' : ''} ago`;
-    };
-
     const toggleSeries = (key: string) => {
-        setVisibleSeries((prev) => ({ ...prev, [key]: !prev[key] }));
+        setSeriesAttr(prev => ({
+            ...prev,
+            [key]: {
+                ...prev[key],
+                visible: !prev[key].visible,
+            },
+        }));
     };
 
     const zoomTo = (minutesAgo: number | 'all') => {
@@ -333,7 +379,7 @@ export const ChartComponent = (props: any) => {
 
         // Flatten all timestamps from all visible series
         const allData = Object.entries(dataSeries)
-            .filter(([key]) => visibleSeries[key])
+            .filter(([key]) => seriesAttr[key].visible)
             .flatMap(([, data]) => data)
             .sort((a, b) => a.time - b.time);
 
@@ -360,65 +406,43 @@ export const ChartComponent = (props: any) => {
     }
 
     return <>
-
         <div>
-            <div className="flex justify-center items-center gap-2 mb-2 pt-2">
-                {Object.keys(dataSeries).map((key) => (
-                    <button
+            <div className="flex justify-center gap-2 mb-2 pt-2 flex-wrap">
+                {Object.entries(seriesAttr).map(([key, attr]) => (
+                    <ButBetSite
                         key={key}
-                        onClick={() => toggleSeries(key.split("___")[0])}
-                        style={{
-                            backgroundColor: visibleSeries[key.split("___")[0]] ? '#333' : '#555',
-                            border: `1px solid ${seriesColors[key.split("___")[0]]}`,
-                            color: '#fff',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        {visibleSeries[key.split("___")[0]] ? 'Hide' : 'Show'} {key.split("___")[0]}
-                    </button>
+                        onHandleClick={() => toggleSeries(key)}
+                        color={attr.color}
+                        label={attr.name}
+                        imageSrc={attr.imageSrc}
+                        visible={attr.visible}
+                    />
                 ))}
             </div>
 
-            <div className="flex justify-center items-center gap-2">
-                <ZoomButton onHandleClick={() => zoomTo(15)}
-                    label='Last 15m'
+            <div className="flex justify-center gap-2">
+                {[15, 60, 1440].map((m) => (
+                    <BtnZoom
+                        key={m}
+                        onHandleClick={() => zoomTo(m)}
+                        label={`Last ${m >= 60 ? `${m / 60}h` : `${m}m`}`}
+                        visibleType={visibleType}
+                        zoomValue={`${m}min`}
+                    />
+                ))}
+                <BtnZoom
+                    onHandleClick={() => zoomTo('all')}
+                    label="All Time"
                     visibleType={visibleType}
-                    zoomValue='15min' />
-                <ZoomButton onHandleClick={() => zoomTo(60)}
-                    label='Last 1h'
-                    visibleType={visibleType}
-                    zoomValue='60min' />
-                <ZoomButton onHandleClick={() => zoomTo(60 * 24)}
-                    label='All Time'
-                    visibleType={visibleType}
-                    zoomValue='1440min' />
-                <ZoomButton onHandleClick={() => zoomTo('all')}
-                    label='Last 24h'
-                    visibleType={visibleType}
-                    zoomValue='all' />
+                    zoomValue="all"
+                />
             </div>
 
-            <div style={{ position: 'relative' }}>
-                <div ref={chartContainerRef} style={{ width: '100%', height: 300 }} />
+            <div className="relative">
+                <div ref={chartContainerRef} className="w-full h-[300px]" />
                 <div
                     ref={tooltipRef}
-                    style={{
-                        position: 'absolute',
-                        zIndex: 1000,
-                        background: '#2a2a2a',
-                        color: '#f0f0f0',
-                        border: '1px solid #444',
-                        borderRadius: '8px',
-                        padding: '10px 12px',
-                        fontSize: '14px',
-                        lineHeight: '1.5',
-                        pointerEvents: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                        display: 'none',
-                        whiteSpace: 'nowrap',
-                    }}
+                    className="absolute z-[1000] bg-[#2a2a2a] text-[#f0f0f0] border border-[#444] rounded-lg px-3 py-2 text-sm leading-[1.5] pointer-events-none shadow-lg hidden whitespace-nowrap"
                 />
             </div>
         </div>
