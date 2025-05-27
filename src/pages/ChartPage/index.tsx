@@ -3,98 +3,83 @@ import { useEffect, useState } from "react";
 import { ChartComponent } from "./_components/ChartComponent";
 import { getGraphQLBetHistories, getGraphQLToken } from "../../services/chartService";
 
-type RawData = {
+export type RawData = {
     americanOdds: number;
     timeStamp: number; // Unix timestamp in seconds
 };
 
 export type FormattedData = {
-    time: number; // "yyyy-mm-dd hh:mm"
-    value?: number | undefined;
+    time: number;
+    value?: number;
 };
 
 const ChartPage = () => {
     const [token, setToken] = useState("");
     const [betMarHs, setBetMarHs] = useState<any[]>([]);
-
-    const [fanDuelValues, setFanDuelValues] = useState<FormattedData[]>([]);
-    const [draftKingsValues, setDraftKingsValues] = useState<FormattedData[]>([]);
-    const [espnBetValues, setEspnBetValues] = useState<FormattedData[]>([]);
-    const [betOnlineAgValues, setBetOnlineAgValues] = useState<FormattedData[]>([]);
-    const [mgmValues, setMgmValues] = useState<FormattedData[]>([]);
-    const [bovadaValues, setBovadaValues] = useState<FormattedData[]>([]);
-    const [uniBetValues, setUniBetValues] = useState<FormattedData[]>([]);
-    const [caesarsValues, setCaesarsValues] = useState<FormattedData[]>([]);
-    const [ps3838Values, setPs3838Values] = useState<FormattedData[]>([]);
-    const [pointsBetValues, setPointsBetValues] = useState<FormattedData[]>([]);
+    const [formattedDataMap, setFormattedDataMap] = useState<Record<string, FormattedData[]>>({});
 
     useEffect(() => {
         getGraphQLToken()
             .then((data: any) => {
-                setToken(data?.data?.user?.token?.accessToken)
+                setToken(data?.data?.user?.token?.accessToken);
             })
-            .catch(err => console.log("err", err))
-    }, [])
+            .catch(err => console.error("Token fetch error:", err));
+    }, []);
 
     useEffect(() => {
-        if (token !== "") {
+        if (token) {
             getGraphQLBetHistories(token)
                 .then((data: any) => {
                     setBetMarHs(data[0]?.data?.betMarketListingHistory);
                 })
-                .catch(err => console.log("err", err));
+                .catch(err => console.error("Bet histories fetch error:", err));
         }
-    }, [token])
+    }, [token]);
 
     useEffect(() => {
         if (betMarHs.length > 0) {
-            console.log("betMarHs", betMarHs)
+            const sites = [
+                "fanDuelSite", "draftKingsSite", "espnBetSite", "betOnlineSite", "mgmSite",
+                "bovadaSite", "uniBetSite", "caesarsSite", "ps3838Site", "pointsBetSite"
+            ];
+            const newDataMap: Record<string, FormattedData[]> = {};
 
-            setFanDuelValues(formatData(ensureAscendingTimestamps(betMarHs[0].odds)));
-            setDraftKingsValues(formatData(ensureAscendingTimestamps(betMarHs[1].odds)));
-            setEspnBetValues(formatData(ensureAscendingTimestamps(betMarHs[2].odds)));
-            setBetOnlineAgValues(formatData(ensureAscendingTimestamps(betMarHs[3].odds)));
-            setMgmValues(formatData(ensureAscendingTimestamps(betMarHs[4].odds)));
-            setBovadaValues(formatData(ensureAscendingTimestamps(betMarHs[5].odds)));
-            setUniBetValues(formatData(ensureAscendingTimestamps(betMarHs[6].odds)));
-            setCaesarsValues(formatData(ensureAscendingTimestamps(betMarHs[7].odds)));
-            setPs3838Values(formatData(ensureAscendingTimestamps(betMarHs[8].odds)));
-            setPointsBetValues(formatData(ensureAscendingTimestamps(betMarHs[9].odds)));
+            sites.forEach((site, index) => {
+                if (betMarHs[index]?.odds) {
+                    const sorted = ensureAscendingTimestamps(betMarHs[index].odds);
+                    newDataMap[site] = formatData(sorted);
+                }
+            });
+
+            setFormattedDataMap(newDataMap);
         }
-    }, [betMarHs])
+    }, [betMarHs]);
 
     const ensureAscendingTimestamps = (data: RawData[]): RawData[] => {
         const sorted = [...data].sort((a, b) => a.timeStamp - b.timeStamp);
-
         for (let i = 1; i < sorted.length; i++) {
             if (sorted[i].timeStamp <= sorted[i - 1].timeStamp) {
                 sorted[i].timeStamp = sorted[i - 1].timeStamp + 1;
             }
         }
-
         return sorted;
-    }
+    };
 
     const formatData = (data: RawData[]): FormattedData[] => {
-        const formatted = data
-            .map((item) => {
-                return {
-                    time: parseInt(item.timeStamp + ""),
-                    value: item.americanOdds === null ? undefined : item.americanOdds,
-                };
-            });
-
-        const normalized = normalizeToFiveMinuteSteps(formatted);
-        return normalized;
-    }
+        const formatted = data.map(item => ({
+            time: item.timeStamp,
+            value: item.americanOdds ?? undefined,
+        }));
+        return normalizeToFiveMinuteSteps(formatted);
+    };
 
     const normalizeToFiveMinuteSteps = (data: FormattedData[]) => {
-        if (data.length === 0) return [];
+        if (!data.length) return [];
 
-        data.sort((a: any, b: any) => a.time - b.time);
+        data.sort((a, b) => a.time - b.time);
 
-        const normalized = [];
-        const FIVE_MIN = 60 * 1; // seconds
+        const FIVE_MIN = 60 * 1;
+        const normalized: FormattedData[] = [];
         let currentTime = Math.floor(data[0].time / FIVE_MIN) * FIVE_MIN;
         const endTime = data[data.length - 1].time;
 
@@ -106,34 +91,16 @@ const ChartPage = () => {
                 lastValue = data[dataIndex].value;
                 dataIndex++;
             }
-
-            normalized.push({
-                time: currentTime,
-                value: lastValue
-            });
-
+            normalized.push({ time: currentTime, value: lastValue });
             currentTime += FIVE_MIN;
         }
 
         return normalized;
-    }
+    };
 
-    return <>
-        {
-            <ChartComponent
-                fanDuelValues={fanDuelValues}
-                draftKingsValues={draftKingsValues}
-                espnBetValues={espnBetValues}
-                betOnlineAgValues={betOnlineAgValues}
-                mgmValues={mgmValues}
-                bovadaValues={bovadaValues}
-                uniBetValues={uniBetValues}
-                caesarsValues={caesarsValues}
-                ps3838Values={ps3838Values}
-                pointsBetValues={pointsBetValues}
-            />
-        }
-    </>;
+    return (
+        <ChartComponent dataSeries={formattedDataMap} />
+    );
 };
 
 export default ChartPage;

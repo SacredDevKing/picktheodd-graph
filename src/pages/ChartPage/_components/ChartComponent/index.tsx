@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AreaSeries, createChart, ColorType, ISeriesApi, UTCTimestamp, LineType } from 'lightweight-charts';
+import { AreaSeries, createChart, ColorType, ISeriesApi, LineType, UTCTimestamp } from 'lightweight-charts';
 
 import ButBetSite from '../../../../components/ButBetSite';
 import BtnZoom from '../../../../components/ButZoom';
@@ -7,16 +7,7 @@ import { formatTime, timeAgo } from '../../../../utils/times';
 import { FormattedData } from '../..';
 
 interface ChartComponentProps {
-    fanDuelValues: FormattedData[];
-    draftKingsValues: FormattedData[];
-    espnBetValues: FormattedData[];
-    betOnlineAgValues: FormattedData[];
-    mgmValues: FormattedData[];
-    bovadaValues: FormattedData[];
-    uniBetValues: FormattedData[];
-    caesarsValues: FormattedData[];
-    ps3838Values: FormattedData[];
-    pointsBetValues: FormattedData[];
+    dataSeries: Record<string, FormattedData[]>;
 }
 
 type LineAttribute = {
@@ -25,10 +16,10 @@ type LineAttribute = {
     name: string;
     visible: boolean;
     splitCnt: number;
-}
+};
 
 const BET_SITES: Record<string, string> = {
-    fanDuelSite: 'fanduel',
+    fanDuelSite: 'FanDuel',
     draftKingsSite: 'DraftKings',
     espnBetSite: 'ESPNBet',
     betOnlineSite: 'BetOnline',
@@ -43,48 +34,18 @@ const BET_SITES: Record<string, string> = {
 const IMAGE_URL = (site: string) =>
     `https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2F${site}.webp&w=640&q=75`;
 
-const splitByUndefined = (data: FormattedData[]) => {
-    const segments: FormattedData[][] = [];
-    let current: FormattedData[] = [];
-
-    for (const point of data) {
-        if (point.value === undefined) {
-            if (current.length) segments.push(current);
-            current = [];
-        } else {
-            current.push(point);
-        }
-    }
-    if (current.length) segments.push(current);
-    return segments;
-};
 const getRandomInt = (max: number) => Math.floor(Math.random() * max);
 
-export const ChartComponent: React.FC<ChartComponentProps> = (props) => {
-    const chartContainerRef = useRef<any>(null);
+export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) => {
+    const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
     const tooltipRef = useRef<HTMLDivElement | null>(null);
     const seriesMap = useRef<Record<string, ISeriesApi<any>>>({});
     const seriesData = useRef<Record<string, FormattedData[]>>({});
 
-    const [visibleType, setVisibleType] = useState("all");
-
-    const dataSeries: Record<string, FormattedData[]> = {
-        fanDuelSite: props.fanDuelValues,
-        draftKingsSite: props.draftKingsValues,
-        espnBetSite: props.espnBetValues,
-        betOnlineSite: props.betOnlineAgValues,
-        mgmSite: props.mgmValues,
-        bovadaSite: props.bovadaValues,
-        uniBetSite: props.uniBetValues,
-        caesarsSite: props.caesarsValues,
-        ps3838Site: props.ps3838Values,
-        pointsBetSite: props.pointsBetValues,
-    };
-
     const [seriesAttr, setSeriesAttr] = useState<Record<string, LineAttribute>>(() =>
         Object.fromEntries(
-            Object.entries(dataSeries).map(([key]) => [
+            Object.entries(BET_SITES).map(([key]) => [
                 key,
                 {
                     imageSrc: IMAGE_URL(key.replace('Site', '').toLowerCase()),
@@ -97,13 +58,14 @@ export const ChartComponent: React.FC<ChartComponentProps> = (props) => {
         )
     );
 
+    const [visibleType, setVisibleType] = useState("all");
+
     useEffect(() => {
         if (!chartContainerRef.current) return;
 
         const chart = createChart(chartContainerRef.current, {
             layout: {
-                background: { type: ColorType.Solid, color: '#000' },
-                textColor: 'white',
+                background: { type: ColorType.Solid, color: '#000' }, textColor: 'white',
                 attributionLogo: false,
             },
             grid: {
@@ -112,7 +74,6 @@ export const ChartComponent: React.FC<ChartComponentProps> = (props) => {
             },
             timeScale: {
                 timeVisible: true,
-                secondsVisible: false,
                 tickMarkFormatter: (t: number) => {
                     const d = new Date(t * 1000);
                     return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -126,13 +87,29 @@ export const ChartComponent: React.FC<ChartComponentProps> = (props) => {
         chartRef.current = chart;
         chart.timeScale().fitContent();
 
-        let lastPriceLabel: string | null = null;
+        var lastPriceLabel: string | null = null;
 
         const priceFormatter = (price: number) => {
             const formatted = price < 0 ? `${price}` : `+${price}`;
-            if (formatted === lastPriceLabel) return '';
+            // console.log(`formatted: ${formatted}, lastPriceLabel: ${lastPriceLabel}`);
+            // if (formatted === lastPriceLabel) return '';
             lastPriceLabel = formatted;
             return formatted;
+        };
+
+        const splitByUndefined = (data: FormattedData[]) => {
+            const segments: FormattedData[][] = [];
+            let current: FormattedData[] = [];
+            for (const point of data) {
+                if (point.value === undefined) {
+                    if (current.length) segments.push(current);
+                    current = [];
+                } else {
+                    current.push(point);
+                }
+            }
+            if (current.length) segments.push(current);
+            return segments;
         };
 
         Object.entries(dataSeries).forEach(([key, data]) => {
@@ -144,23 +121,21 @@ export const ChartComponent: React.FC<ChartComponentProps> = (props) => {
                     lineType: LineType.Simple,
                     topColor: 'rgba(0,0,0,0)',
                     bottomColor: 'rgba(0,0,0,0)',
-                    priceLineVisible: false,
+                    priceLineVisible: i === 0,
                     priceScaleId: 'right',
                 });
                 series.setData(segment);
-                // if (i !== 0)
                 series.applyOptions({
                     priceFormat: {
                         type: 'custom',
                         formatter: priceFormatter,
                     },
                 });
-
                 seriesMap.current[id] = series;
                 seriesData.current[id] = segment;
             });
 
-            setSeriesAttr((prev) => ({
+            setSeriesAttr(prev => ({
                 ...prev,
                 [key]: { ...prev[key], splitCnt: segments.length },
             }));
@@ -208,21 +183,10 @@ export const ChartComponent: React.FC<ChartComponentProps> = (props) => {
             resizeObserver.disconnect();
             chart.remove();
         };
-    }, [
-        props.fanDuelValues,
-        props.draftKingsValues,
-        props.espnBetValues,
-        props.betOnlineAgValues,
-        props.mgmValues,
-        props.bovadaValues,
-        props.uniBetValues,
-        props.caesarsValues,
-        props.ps3838Values,
-        props.pointsBetValues
-    ]);
+    }, [dataSeries]);
 
     const toggleSeries = (key: string) => {
-        setSeriesAttr((prev) => ({
+        setSeriesAttr(prev => ({
             ...prev,
             [key]: { ...prev[key], visible: !prev[key].visible },
         }));
@@ -232,37 +196,10 @@ export const ChartComponent: React.FC<ChartComponentProps> = (props) => {
         Object.entries(seriesAttr).forEach(([key, attr]) => {
             for (let i = 0; i < attr.splitCnt; i++) {
                 const series = seriesMap.current[`${key}___${i}`];
-                if (series) {
-                    series.applyOptions({ visible: attr.visible });
-                }
+                if (series) series.applyOptions({ visible: attr.visible });
             }
         });
     }, [seriesAttr]);
-
-    const zoomTo = (minutesAgo: number | 'all') => {
-        const chart = chartRef.current;
-        if (!chart) return;
-
-        const timeScale = chart.timeScale();
-        const allPoints = Object.entries(dataSeries)
-            .filter(([key]) => seriesAttr[key].visible)
-            .flatMap(([, d]) => d)
-            .sort((a, b) => a.time - b.time);
-
-        if (!allPoints.length) return;
-        const latest = allPoints[allPoints.length - 1].time;
-
-        if (minutesAgo === 'all') {
-            timeScale.fitContent();
-            setVisibleType('all');
-        } else {
-            timeScale.setVisibleRange({
-                from: (latest - minutesAgo * 60) as UTCTimestamp,
-                to: latest as UTCTimestamp,
-            });
-            setVisibleType(`${minutesAgo}min`);
-        }
-    };
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -332,47 +269,69 @@ export const ChartComponent: React.FC<ChartComponentProps> = (props) => {
         return () => clearInterval(interval);
     }, [seriesAttr]);
 
+    const zoomTo = (minutesAgo: number | 'all') => {
+        const chart = chartRef.current;
+        if (!chart) return;
+
+        const allPoints = Object.entries(dataSeries)
+            .filter(([key]) => seriesAttr[key].visible)
+            .flatMap(([, d]) => d)
+            .sort((a, b) => a.time - b.time);
+
+        if (!allPoints.length) return;
+        const latest = allPoints[allPoints.length - 1].time;
+
+        if (minutesAgo === 'all') {
+            chart.timeScale().fitContent();
+            setVisibleType('all');
+        } else {
+            chart.timeScale().setVisibleRange({
+                from: (latest - minutesAgo * 60) as UTCTimestamp,
+                to: latest as UTCTimestamp,
+            });
+            setVisibleType(`${minutesAgo}min`);
+        }
+    };
+
     return (
         <>
-            <div>
-                <div className="flex justify-center gap-2 mb-2 pt-2 flex-wrap">
-                    {Object.entries(seriesAttr).map(([key, attr]) => (
-                        <ButBetSite
-                            key={key}
-                            onHandleClick={() => toggleSeries(key)}
-                            color={attr.color}
-                            label={attr.name}
-                            imageSrc={attr.imageSrc}
-                            visible={attr.visible}
-                        />
-                    ))}
-                </div>
+            <div className="flex justify-center gap-2 mb-2 pt-2 flex-wrap">
+                {Object.entries(seriesAttr).map(([key, attr]) => (
+                    <ButBetSite
+                        key={key}
+                        onHandleClick={() => toggleSeries(key)}
+                        color={attr.color}
+                        label={attr.name}
+                        imageSrc={attr.imageSrc}
+                        visible={attr.visible}
+                    />
+                ))}
+            </div>
 
-                <div className="flex justify-center gap-2">
-                    {[15, 60, 1440].map((mins) => (
-                        <BtnZoom
-                            key={mins}
-                            onHandleClick={() => zoomTo(mins)}
-                            label={`Last ${mins >= 60 ? `${mins / 60}h` : `${mins}mins`}`}
-                            visibleType={visibleType}
-                            zoomValue={`${mins}min`}
-                        />
-                    ))}
+            <div className="flex justify-center gap-2">
+                {[15, 60, 1440].map(mins => (
                     <BtnZoom
-                        onHandleClick={() => zoomTo('all')}
-                        label="All Time"
+                        key={mins}
+                        onHandleClick={() => zoomTo(mins)}
+                        label={`Last ${mins >= 60 ? `${mins / 60}h` : `${mins}mins`}`}
                         visibleType={visibleType}
-                        zoomValue="all"
+                        zoomValue={`${mins}min`}
                     />
-                </div>
+                ))}
+                <BtnZoom
+                    onHandleClick={() => zoomTo('all')}
+                    label="All Time"
+                    visibleType={visibleType}
+                    zoomValue="all"
+                />
+            </div>
 
-                <div className="relative">
-                    <div ref={chartContainerRef} className="w-full h-[300px]" />
-                    <div
-                        ref={tooltipRef}
-                        className="absolute z-[1000] bg-[#2a2a2a] text-[#f0f0f0] border border-[#444] rounded-lg px-3 py-2 text-sm leading-[1.5] pointer-events-none shadow-lg hidden whitespace-nowrap"
-                    />
-                </div>
+            <div className="relative">
+                <div ref={chartContainerRef} className="w-full h-[300px]" />
+                <div
+                    ref={tooltipRef}
+                    className="absolute z-[1000] bg-[#2a2a2a] text-[#f0f0f0] border border-[#444] rounded-lg px-3 py-2 text-sm leading-[1.5] pointer-events-none shadow-lg hidden whitespace-nowrap"
+                />
             </div>
         </>
     );
