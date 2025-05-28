@@ -16,6 +16,7 @@ type LineAttribute = {
     name: string;
     visible: boolean;
     splitCnt: number;
+    disabled: boolean;
 };
 
 const BET_SITES: Record<string, string> = {
@@ -33,6 +34,7 @@ const BET_SITES: Record<string, string> = {
 
 const IMAGE_URL = (site: string) =>
     `https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2F${site}.webp&w=640&q=75`;
+const RANDOM_DATA_GEN_SEC = 5;
 
 const getRandomInt = (max: number) => Math.floor(Math.random() * max);
 
@@ -52,6 +54,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                     color: '#' + Math.floor(Math.random() * 16777215).toString(16),
                     name: BET_SITES[key],
                     visible: true,
+                    disabled: false,
                     splitCnt: 0,
                 },
             ])
@@ -59,6 +62,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
     );
 
     const [visibleType, setVisibleType] = useState("all");
+    const [visibleChange, setVisibleChange] = useState(false);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -113,6 +117,14 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
 
         Object.entries(dataSeries).forEach(([key, data]) => {
             const segments = splitByUndefined(data);
+
+            if (segments.length === 0) {
+                setSeriesAttr(prev => ({
+                    ...prev,
+                    [key]: { ...prev[key], disabled: true },
+                }));
+            }
+
             segments.forEach((segment: any, i) => {
                 const id = `${key}___${i}`;
                 const series = chart.addSeries(AreaSeries, {
@@ -127,6 +139,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                 series.applyOptions({
                     priceFormat: {
                         type: 'custom',
+                        minMove: 1,
                         formatter: priceFormatter,
                     },
                 });
@@ -140,38 +153,8 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
             }));
         });
 
-        chart.subscribeCrosshairMove((param) => {
-            const tooltip = tooltipRef.current;
-            if (!tooltip || !param.point || !param.seriesData.size) {
-                if (tooltip) tooltip.style.display = 'none';
-                return;
-            }
-
-            const lines: string[] = [];
-            let y: number | null = null;
-
-            for (const [id, series] of Object.entries(seriesMap.current)) {
-                const baseKey = id.split('___')[0];
-                if (!seriesAttr[baseKey].visible) continue;
-
-                const seriesData = param.seriesData.get(series) as any;
-                const value = seriesData?.value;
-                if (value === undefined) continue;
-
-                y ??= series.priceToCoordinate(value) ?? param.point.y;
-                lines.push(`<div style="color:${series.options().color};font-weight:600;">${value < 0 ? value : `+${value}`} <span style="opacity:0.7;">(${baseKey})</span></div>`);
-            }
-
-            const rawTime = typeof param.time === 'number' ? param.time : (param.time as any).timestamp;
-
-            lines.push(`<div style="margin-top:4px;">🕒 ${formatTime(rawTime)}</div>`);
-            lines.push(`<div style="font-size:12px;opacity:0.6;">${timeAgo(rawTime)}</div>`);
-
-            tooltip.innerHTML = lines.join('');
-            tooltip.style.left = `${param.point.x + 15}px`;
-            tooltip.style.top = `${(y ?? param.point.y) + 15}px`;
-            tooltip.style.display = 'block';
-        });
+        addTooltip(chart);
+        addZoomEvent(chart);
 
         const resizeObserver = new ResizeObserver(() => {
             chart.applyOptions({ width: chartContainerRef.current!.clientWidth });
@@ -184,20 +167,19 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
         };
     }, [dataSeries]);
 
-    const toggleSeries = (key: string) => {
-        setSeriesAttr(prev => ({
-            ...prev,
-            [key]: { ...prev[key], visible: !prev[key].visible },
-        }));
-    };
+    useEffect(() => {
+        const chart = chartRef.current;
+        if (!chart) return;
+
+        addTooltip(chart);
+    }, [visibleChange])
 
     useEffect(() => {
-        Object.entries(seriesAttr).forEach(([key, attr]) => {
-            for (let i = 0; i < attr.splitCnt; i++) {
-                const series = seriesMap.current[`${key}___${i}`];
-                if (series) series.applyOptions({ visible: attr.visible });
-            }
-        });
+        const chart = chartRef.current;
+        if (!chart) return;
+
+        addZoomEvent(chart);
+        setSeriesVisibility();
     }, [seriesAttr]);
 
     useEffect(() => {
@@ -215,7 +197,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
 
                 const lastPoint = currentData[currentData.length - 1];
 
-                if ((now - lastPoint.time) <= 60) {
+                if ((now - lastPoint.time) <= RANDOM_DATA_GEN_SEC) {
                     const newPoint = { time: now, value: lastPoint.value };
                     const updated = [...currentData, newPoint];
 
@@ -244,6 +226,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                     newSeries.applyOptions({
                         priceFormat: {
                             type: 'custom',
+                            minMove: 1,
                             formatter: (p: number) => (p < 0 ? `${p}` : `+${p}`),
                         },
                     });
@@ -263,10 +246,20 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                     }));
                 }
             });
-        }, 60000);
+        }, RANDOM_DATA_GEN_SEC * 1000);
 
         return () => clearInterval(interval);
-    }, [seriesAttr]);
+    }, [seriesAttr])
+
+    const isToday = (timestamp: number) => {
+        const d = new Date(timestamp * 1000);
+        const today = new Date();
+        return (
+            d.getFullYear() === today.getFullYear() &&
+            d.getMonth() === today.getMonth() &&
+            d.getDate() === today.getDate()
+        );
+    };
 
     const zoomTo = (minutesAgo: number | 'all') => {
         const chart = chartRef.current;
@@ -292,6 +285,106 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
         }
     };
 
+    const toggleSeries = (key: string) => {
+        setSeriesAttr(prev => ({
+            ...prev,
+            [key]: { ...prev[key], visible: !prev[key].visible },
+        }));
+        setVisibleChange(!visibleChange);
+    };
+
+    const addTooltip = (chart: any) => {
+        chart.subscribeCrosshairMove((param: any) => {
+            const tooltip = tooltipRef.current;
+            if (!tooltip || !param.point || !param.seriesData.size) {
+                if (tooltip) tooltip.style.display = 'none';
+                return;
+            }
+
+            const lines: string[] = [];
+            let y: number | null = null;
+
+            for (const [id, series] of Object.entries(seriesMap.current)) {
+                const baseKey = id.split('___')[0];
+                if (!seriesAttr[baseKey].visible) continue;
+
+                const seriesData = param.seriesData.get(series) as any;
+                const value = seriesData?.value;
+                if (value === undefined) continue;
+
+                y ??= series.priceToCoordinate(value) ?? param.point.y;
+                lines.push(`<div style="color:${series.options().color};font-weight:600;">${value < 0 ? value : `+${value}`} <span style="opacity:0.7;">(${baseKey.replace('Site', '')})</span></div>`);
+            }
+
+            const rawTime = typeof param.time === 'number' ? param.time : (param.time as any).timestamp;
+
+            lines.push(`<div style="margin-top:4px;">🕒 ${formatTime(rawTime)}</div>`);
+            lines.push(`<div style="font-size:12px;opacity:0.6;">${timeAgo(rawTime)}</div>`);
+
+            tooltip.innerHTML = lines.join('');
+            tooltip.style.left = `${param.point.x + 15}px`;
+            tooltip.style.top = `${(y ?? param.point.y) + 15}px`;
+            tooltip.style.display = 'block';
+        });
+    }
+
+    const addZoomEvent = (chart: any) => {
+        const handleTimeRangeChange: any = (range: { from: number; to: number } | null) => {
+            if (!range) return;
+
+            const allVisibleTimes: number[] = [];
+
+            for (const [key, attr] of Object.entries(seriesAttr)) {
+                if (!attr.visible) continue;
+                for (let i = 0; i < attr.splitCnt; i++) {
+                    const segment = seriesData.current[`${key}___${i}`];
+                    if (!segment) continue;
+                    const visible = segment.filter(p => p.time >= range.from && p.time <= range.to);
+                    allVisibleTimes.push(...visible.map(p => p.time));
+                }
+            }
+
+            const allToday = allVisibleTimes.length > 0 && allVisibleTimes.every(isToday);
+
+            chart.applyOptions({
+                timeScale: {
+                    tickMarkFormatter: (t: number) => {
+                        const d = new Date(t * 1000);
+                        if (allToday) {
+                            return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+                        }
+                        return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+                    }
+                }
+            });
+
+            const rangeDuration = Math.round((range.to - range.from) / 60);
+            const mins = [15, 60, 1440];
+            const minLimits = [3, 5, 20];
+            let matches = false;
+
+            for (let i = 0; i < 3; i++) {
+                if (Math.abs(mins[i] - rangeDuration) <= minLimits[i])
+                    matches = true;
+            }
+
+            if (!matches) {
+                setVisibleType("off"); // mark as custom zoom
+            }
+        };
+
+        chart.timeScale().subscribeVisibleTimeRangeChange(handleTimeRangeChange);
+    }
+
+    const setSeriesVisibility = () => {
+        Object.entries(seriesAttr).forEach(([key, attr]) => {
+            for (let i = 0; i < attr.splitCnt; i++) {
+                const series = seriesMap.current[`${key}___${i}`];
+                if (series) series.applyOptions({ visible: attr.visible });
+            }
+        });
+    }
+
     return (
         <>
             <div className="flex justify-center gap-2 mb-2 pt-2 flex-wrap">
@@ -303,6 +396,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                         label={attr.name}
                         imageSrc={attr.imageSrc}
                         visible={attr.visible}
+                        disabled={attr.disabled}
                     />
                 ))}
             </div>
