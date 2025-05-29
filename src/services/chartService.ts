@@ -29,7 +29,7 @@ export const getGraphQLBetHistories = (token: string) => {
         operationName: "GetBetMarketListingHistory",
         query: "query GetBetMarketListingHistory($betMarketHashCode: Int!, $gameId: Guid!, $league: LeagueEnum!, $betSites: [BetMarketSiteEnumTypeTwo]) {\n  betMarketListingHistory(\n    betMarketHashCode: $betMarketHashCode\n    gameId: $gameId\n    league: $league\n    betSites: $betSites\n  ) {\n    siteId\n    odds {\n      timeStamp\n      americanOdds\n      __typename\n    }\n    __typename\n  }\n}",
         variables: {
-            betMarketHashCode: 1704644834,
+            betMarketHashCode: 580725173,
             betSites: [
                 "FAN_DUEL",
                 "MGM",
@@ -42,7 +42,7 @@ export const getGraphQLBetHistories = (token: string) => {
                 "PS_3838",
                 "BET_ONLINE_AG"
             ],
-            gameId: "9e08b3e0-4d7b-4025-ab75-a24321a1ad13",
+            gameId: "5666197e-d948-4719-8448-7a6284c53e27",
             league: "NBA"
         }
     }]

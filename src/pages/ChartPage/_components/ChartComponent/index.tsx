@@ -34,7 +34,7 @@ const BET_SITES: Record<string, string> = {
 
 const IMAGE_URL = (site: string) =>
     `https://picktheodds.app/_next/image?url=https%3A%2F%2Fpicktheodds.app%2Fbetsites%2Ficons%2F${site}.webp&w=640&q=75`;
-const RANDOM_DATA_GEN_SEC = 5;
+const RANDOM_DATA_GEN_SEC = 2;
 
 const getRandomInt = (max: number) => Math.floor(Math.random() * max);
 
@@ -44,6 +44,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
     const tooltipRef = useRef<HTMLDivElement | null>(null);
     const seriesMap = useRef<Record<string, ISeriesApi<any>>>({});
     const seriesData = useRef<Record<string, FormattedData[]>>({});
+    const userZoomed = useRef(false);
 
     const [seriesAttr, setSeriesAttr] = useState<Record<string, LineAttribute>>(() =>
         Object.fromEntries(
@@ -183,7 +184,12 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
     }, [seriesAttr]);
 
     useEffect(() => {
-        const interval = setInterval(() => {
+        let cancelled = false;
+
+        const update = () => {
+            if (cancelled)
+                return;
+
             const now = Math.floor(Date.now() / 1000);
 
             Object.entries(seriesAttr).forEach(([key, attr]) => {
@@ -199,17 +205,17 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
 
                 if ((now - lastPoint.time) <= RANDOM_DATA_GEN_SEC) {
                     const newPoint = { time: now, value: lastPoint.value };
-                    const updated = [...currentData, newPoint];
 
                     dataSeries[key].push(newPoint);
-                    series.setData(updated);
-                    seriesData.current[seriesKey] = updated;
+                    series.update(newPoint);
+                    seriesData.current[seriesKey].push(newPoint);
                 } else {
                     const chart = chartRef.current;
                     if (!chart) return;
 
                     const newValue = lastPoint.value;
                     const newPoint = { time: now, value: newValue };
+                    // const newSplitIndex = attr.splitCnt;
                     const newSeriesKey = `${key}___${attr.splitCnt}`;
                     const updated: any = [newPoint];
 
@@ -229,9 +235,8 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                             minMove: 1,
                             formatter: (p: number) => (p < 0 ? `${p}` : `+${p}`),
                         },
+                        visible: true
                     });
-
-                    newSeries.applyOptions({ visible: true });
 
                     seriesMap.current[newSeriesKey] = newSeries;
                     seriesData.current[newSeriesKey] = updated;
@@ -246,9 +251,19 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                     }));
                 }
             });
-        }, RANDOM_DATA_GEN_SEC * 1000);
 
-        return () => clearInterval(interval);
+            if (!userZoomed.current) {
+                chartRef.current?.timeScale().scrollToRealTime();
+            }
+
+            setTimeout(update, RANDOM_DATA_GEN_SEC * 1000);
+        };
+
+        update();
+
+        return () => {
+            cancelled = true;
+        };
     }, [seriesAttr])
 
     const isToday = (timestamp: number) => {
@@ -276,12 +291,14 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
         if (minutesAgo === 'all') {
             chart.timeScale().fitContent();
             setVisibleType('all');
+            userZoomed.current = false;
         } else {
             chart.timeScale().setVisibleRange({
                 from: (latest - minutesAgo * 60) as UTCTimestamp,
                 to: latest as UTCTimestamp,
             });
             setVisibleType(`${minutesAgo}min`);
+            userZoomed.current = true;
         }
     };
 
@@ -331,6 +348,8 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
     const addZoomEvent = (chart: any) => {
         const handleTimeRangeChange: any = (range: { from: number; to: number } | null) => {
             if (!range) return;
+
+            userZoomed.current = true;
 
             const allVisibleTimes: number[] = [];
 
@@ -401,7 +420,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                 ))}
             </div>
 
-            <div className="flex justify-center gap-2">
+            <div className="flex justify-center gap-2 mb-2">
                 {[15, 60, 1440].map(mins => (
                     <BtnZoom
                         key={mins}
