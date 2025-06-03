@@ -62,7 +62,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
         )
     );
 
-    const [visibleType, setVisibleType] = useState("all");
+    const [visibleType, setVisibleType] = useState('all');
     const [visibleChange, setVisibleChange] = useState(false);
 
     useEffect(() => {
@@ -70,7 +70,8 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
 
         const chart = createChart(chartContainerRef.current, {
             layout: {
-                background: { type: ColorType.Solid, color: '#000' }, textColor: 'white',
+                background: { type: ColorType.Solid, color: '#000' },
+                textColor: 'white',
                 attributionLogo: false,
             },
             grid: {
@@ -93,11 +94,13 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
         chart.timeScale().fitContent();
 
         var lastPriceLabel: string | null = null;
+        var lastPriceLabelCnt: number = 0;
 
         const priceFormatter = (price: number) => {
             const formatted = price < 0 ? `${price}` : `+${price}`;
-            if (formatted === lastPriceLabel) return '';
+            if (formatted === lastPriceLabel && lastPriceLabelCnt > 1) return '';
             lastPriceLabel = formatted;
+            lastPriceLabelCnt ++;
             return formatted;
         };
 
@@ -173,7 +176,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
         if (!chart) return;
 
         addTooltip(chart);
-    }, [visibleChange])
+    }, [visibleChange]);
 
     useEffect(() => {
         const chart = chartRef.current;
@@ -185,10 +188,10 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
 
     useEffect(() => {
         let cancelled = false;
+        // const MAX_SERIES = 400;
 
         const update = () => {
-            if (cancelled)
-                return;
+            if (cancelled) return;
 
             const now = Math.floor(Date.now() / 1000);
 
@@ -203,7 +206,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
 
                 const lastPoint = currentData[currentData.length - 1];
 
-                if ((now - lastPoint.time) <= RANDOM_DATA_GEN_SEC) {
+                if (now - lastPoint.time <= RANDOM_DATA_GEN_SEC) {
                     const newPoint = { time: now, value: lastPoint.value };
 
                     dataSeries[key].push(newPoint);
@@ -215,7 +218,6 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
 
                     const newValue = lastPoint.value;
                     const newPoint = { time: now, value: newValue };
-                    // const newSplitIndex = attr.splitCnt;
                     const newSeriesKey = `${key}___${attr.splitCnt}`;
                     const updated: any = [newPoint];
 
@@ -235,7 +237,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                             minMove: 1,
                             formatter: (p: number) => (p < 0 ? `${p}` : `+${p}`),
                         },
-                        visible: true
+                        visible: true,
                     });
 
                     seriesMap.current[newSeriesKey] = newSeries;
@@ -252,6 +254,18 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                 }
             });
 
+            // **PRUNE OLDEST SERIES IF EXCEEDING MAX_SERIES**
+            // const keys = Object.keys(seriesMap.current);
+            // if (keys.length > MAX_SERIES) {
+            //     const oldestKey = keys[0]; // oldest inserted key
+            //     const oldestSeries = seriesMap.current[oldestKey];
+            //     if (oldestSeries && chartRef.current) {
+            //         chartRef.current.removeSeries(oldestSeries);
+            //     }
+            //     delete seriesMap.current[oldestKey];
+            //     delete seriesData.current[oldestKey];
+            // }
+
             if (!userZoomed.current) {
                 chartRef.current?.timeScale().scrollToRealTime();
             }
@@ -264,7 +278,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
         return () => {
             cancelled = true;
         };
-    }, [seriesAttr])
+    }, [seriesAttr]);
 
     const isToday = (timestamp: number) => {
         const d = new Date(timestamp * 1000);
@@ -276,6 +290,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
         );
     };
 
+    // Fixed zoomTo to set visibleType and userZoomed correctly
     const zoomTo = (minutesAgo: number | 'all') => {
         const chart = chartRef.current;
         if (!chart) return;
@@ -291,14 +306,14 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
         if (minutesAgo === 'all') {
             chart.timeScale().fitContent();
             setVisibleType('all');
-            userZoomed.current = false;
+            userZoomed.current = false; // Reset to allow auto-scroll
         } else {
             chart.timeScale().setVisibleRange({
                 from: (latest - minutesAgo * 60) as UTCTimestamp,
                 to: latest as UTCTimestamp,
             });
             setVisibleType(`${minutesAgo}min`);
-            userZoomed.current = true;
+            userZoomed.current = true; // User actively zoomed
         }
     };
 
@@ -330,7 +345,12 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                 if (value === undefined) continue;
 
                 y ??= series.priceToCoordinate(value) ?? param.point.y;
-                lines.push(`<div style="color:${series.options().color};font-weight:600;">${value < 0 ? value : `+${value}`} <span style="opacity:0.7;">(${baseKey.replace('Site', '')})</span></div>`);
+                lines.push(
+                    `<div style="color:${series.options().color};font-weight:600;">${value < 0 ? value : `+${value}`} <span style="opacity:0.7;">(${baseKey.replace(
+                        'Site',
+                        ''
+                    )})</span></div>`
+                );
             }
 
             const rawTime = typeof param.time === 'number' ? param.time : (param.time as any).timestamp;
@@ -343,14 +363,39 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
             tooltip.style.top = `${(y ?? param.point.y) + 15}px`;
             tooltip.style.display = 'block';
         });
-    }
+    };
 
+    // FIXED: Improved addZoomEvent handler
     const addZoomEvent = (chart: any) => {
-        const handleTimeRangeChange: any = (range: { from: number; to: number } | null) => {
+        const predefinedZooms = [
+            { mins: 15, label: '15min', tolerance: 3 },
+            { mins: 60, label: '60min', tolerance: 5 },
+            { mins: 1440, label: '1440min', tolerance: 20 },
+        ];
+
+        const handleTimeRangeChange = (range: { from: number; to: number } | null) => {
             if (!range) return;
 
             userZoomed.current = true;
 
+            const rangeDuration = Math.round((range.to - range.from) / 60);
+
+            let matchedLabel = 'all';
+
+            for (const zoom of predefinedZooms) {
+                // if (Math.abs(zoom.mins - rangeDuration) <= zoom.tolerance) {
+                //     matchedLabel = zoom.label;
+                //     break;
+                // }
+                if (rangeDuration < zoom.mins + zoom.tolerance) {
+                    matchedLabel = zoom.label;
+                    break;
+                }
+            }
+
+            setVisibleType(matchedLabel);
+
+            // Calculate if all visible points are today (for tick formatter)
             const allVisibleTimes: number[] = [];
 
             for (const [key, attr] of Object.entries(seriesAttr)) {
@@ -373,27 +418,13 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                             return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
                         }
                         return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
-                    }
-                }
+                    },
+                },
             });
-
-            const rangeDuration = Math.round((range.to - range.from) / 60);
-            const mins = [15, 60, 1440];
-            const minLimits = [3, 5, 20];
-            let matches = false;
-
-            for (let i = 0; i < 3; i++) {
-                if (Math.abs(mins[i] - rangeDuration) <= minLimits[i])
-                    matches = true;
-            }
-
-            if (!matches) {
-                setVisibleType("off"); // mark as custom zoom
-            }
         };
 
         chart.timeScale().subscribeVisibleTimeRangeChange(handleTimeRangeChange);
-    }
+    };
 
     const setSeriesVisibility = () => {
         Object.entries(seriesAttr).forEach(([key, attr]) => {
@@ -402,7 +433,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                 if (series) series.applyOptions({ visible: attr.visible });
             }
         });
-    }
+    };
 
     return (
         <>
@@ -430,12 +461,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ dataSeries }) =>
                         zoomValue={`${mins}min`}
                     />
                 ))}
-                <BtnZoom
-                    onHandleClick={() => zoomTo('all')}
-                    label="All Time"
-                    visibleType={visibleType}
-                    zoomValue="all"
-                />
+                <BtnZoom onHandleClick={() => zoomTo('all')} label="All Time" visibleType={visibleType} zoomValue="all" />
             </div>
 
             <div className="relative">
